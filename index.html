@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><title>NEXO</title>
+<style>
+:root{--bg:#0a0a0b;--card:#151719;--card2:#1c1f22;--line:#272b2f;--ac:#39ff88;--tx:#e9eeea;--mu:#8e9892;--warn:#ffc857}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 96px}
+main{max-width:540px;margin:0 auto;padding:14px}
+h1{font-size:22px;letter-spacing:.04em}h2{font-size:16px;margin-bottom:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sp{justify-content:space-between}
+.mu{color:var(--mu);font-size:14px}.ac{color:var(--ac)}.big{font-size:30px;font-weight:700}
+button,input,select{font:inherit;color:var(--tx);min-height:44px;border-radius:12px}
+input,select{background:var(--card2);border:1px solid var(--line);padding:0 12px;width:100%}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+label{display:block;font-size:14px;color:var(--mu);margin:10px 0 4px}
+.b{background:var(--ac);color:#04140a;border:0;font-weight:700;padding:0 16px;cursor:pointer}
+.g{background:transparent;border:1px solid var(--line);padding:0 14px;cursor:pointer}
+.chip{min-height:38px;padding:0 12px;background:var(--card2);border:1px solid var(--line);border-radius:20px;cursor:pointer}
+.x{min-height:36px;min-width:36px;background:none;border:0;color:var(--mu);cursor:pointer}
+.bar{height:8px;background:var(--card2);border-radius:6px;overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;background:var(--ac);border-radius:6px;transition:width .4s}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.chk{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.chk input{width:22px;height:22px;min-height:0;accent-color:var(--ac)}
+.done{color:var(--mu);text-decoration:line-through}
+nav{position:fixed;bottom:0;left:0;right:0;background:#0d0f10ee;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
+nav button{flex:1;background:none;border:0;color:var(--mu);min-height:56px;cursor:pointer}
+nav button[aria-current=page]{color:var(--ac);font-weight:700;box-shadow:inset 0 2px var(--ac)}
+#toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--ac);color:#04140a;padding:10px 16px;border-radius:20px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9}
+#toast.on{opacity:1}
+#ban{position:sticky;top:0;z-index:8}
+.ban{background:var(--card2);border:1px solid var(--ac);border-radius:14px;padding:12px;margin-bottom:10px}
+.hist{display:flex;gap:4px}.hist i{flex:1;height:26px;border-radius:6px;background:var(--card2)}
+.note{border-left:3px solid var(--warn);padding:6px 10px;color:var(--mu);font-size:14px;margin:8px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div id="ban"></div><main id="app"></main><nav id="nav" aria-label="Principal"></nav><div id="toast" role="status"></div>
+<script>
+const K='nexo_v1',$=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const uid=()=>Math.random().toString(36).slice(2,9);
+const ymd=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const today=()=>ymd(new Date());
+const CATS=['Agua','Alimentación','Movimiento'],MEALS=['Desayuno','Comida','Cena','Colaciones'];
+const FREQ={Desayuno:['Huevo','Avena','Fruta','Yogur','Frijoles','Café'],Comida:['Pollo','Arroz','Frijoles','Sopa','Ensalada','Tortillas'],Cena:['Fruta','Yogur','Quesadilla','Huevo','Sándwich','Verduras'],Colaciones:['Fruta','Yogur','Frutos secos','Zanahoria','Galletas integrales']};
+const OUT=['Fruta de temporada: barata y fácil de llevar','Yogur natural o con poca azúcar','Un puñado pequeño de frutos secos','Sándwich de pan integral con huevo o atún','Tacos o tortas de frijol o pollo, con agua en vez de refresco','Elote, jícama o pepino con limón','Palomitas naturales o galletas integrales'];
+const ACT=['Caminar','Ejercicio en casa','Bicicleta','Otra'];
+let S=load(),view='home',day=today(),sw=null,swT=null,snooze=[],showOut=false;
+function load(){try{const j=JSON.parse(localStorage.getItem(K));return j&&j.v===1?j:null}catch(e){return null}}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('No se pudo guardar: el almacenamiento está lleno o bloqueado')}}
+function toast(t){const e=$('#toast');e.textContent=t;e.className='on';clearTimeout(toast.t);toast.t=setTimeout(()=>e.className='',2200)}
+const get=d=>S.log[d]||{h:[],w:[],m:[],a:[]};
+const mut=d=>(S.log[d]=S.log[d]||{h:[],w:[],m:[],a:[]});
+const sum=(a,k)=>a.reduce((n,x)=>n+x[k],0);
+const pct=d=>{const n=S.habits.length;if(!n)return 0;return Math.round(get(d).h.filter(i=>S.habits.some(x=>x.id===i)).length/n*100)};
+const met=d=>pct(d)>=50;
+function days(n){const r=[],d=new Date();for(let i=n-1;i>=0;i--){const x=new Date(d);x.setDate(d.getDate()-i);r.push(ymd(x))}return r}
+function streak(){let c=0,d=new Date();if(!met(ymd(d)))d.setDate(d.getDate()-1);while(met(ymd(d))){c++;d.setDate(d.getDate()-1)}return c}
+function record(){const k=Object.keys(S.log).sort();if(!k.length)return 0;let b=0,r=0,d=new Date(k[0]+'T12:00');while(ymd(d)<=today()){if(met(ymd(d))){r++;b=Math.max(b,r)}else r=0;d.setDate(d.getDate()+1)}return b}
+const hm=t=>{const[a,b]=t.split(':').map(Number);return a*60+b};
+const fmt=m=>String(Math.floor((m+1440)%1440/60)).padStart(2,'0')+':'+String((m%60+60)%60).padStart(2,'0');
+function setup(){
+ $('#nav').innerHTML='';$('#app').innerHTML=`<h1 class="ac">NEXO</h1><p class="mu">Tus hábitos, a tu ritmo. Responde esto una vez; todo se puede cambiar después en Perfil.</p>
+ <form class="card" id="f" novalidate><label for="a">Edad</label><input id="a" type="number" inputmode="numeric">
+ <label for="p">Peso actual (kg)</label><input id="p" type="number" step="0.1" inputmode="decimal">
+ <label for="e">Estatura (cm)</label><input id="e" type="number" inputmode="numeric">
+ <label for="o">Peso objetivo (kg)</label><input id="o" type="number" step="0.1" inputmode="decimal">
+ <label>Horario habitual fuera de casa</label><div class="cols"><input id="f1" type="time" value="08:00" aria-label="Salgo a las"><input id="f2" type="time" value="18:00" aria-label="Regreso a las"></div>
+ <label for="mn">Minutos al día disponibles para moverte</label><input id="mn" type="number" inputmode="numeric" value="20">
+ <p class="note" id="err" hidden></p><p class="mu" style="margin:10px 0">Los datos se guardan solo en este dispositivo. No son un diagnóstico médico ni prometen resultados.</p>
+ <button class="b" style="width:100%">Crear mi plan</button></form>`;
+ $('#f').onsubmit=ev=>{ev.preventDefault();const v=id=>parseFloat($('#'+id).value),er=[];
+  const a=v('a'),p=v('p'),e=v('e'),o=v('o'),mn=v('mn');
+  if(!(a>=14&&a<=100))er.push('Edad entre 14 y 100.');if(!(p>=25&&p<=300))er.push('Peso actual entre 25 y 300 kg.');
+  if(!(e>=100&&e<=230))er.push('Estatura entre 100 y 230 cm.');if(!(o>=25&&o<=300))er.push('Peso objetivo entre 25 y 300 kg.');
+  if(!(mn>=0&&mn<=240))er.push('Minutos disponibles entre 0 y 240.');
+  if(er.length){$('#err').hidden=false;$('#err').innerHTML=er.join('<br>');return}
+  const f1=$('#f1').value||'08:00',f2=$('#f2').value||'18:00',g=Math.max(5,Math.min(mn||15,20));
+  S={v:1,profile:{age:a,kg:p,cm:e,goal:o,away:[f1,f2],avail:mn},waterGoal:Math.max(1500,Math.min(3000,Math.round(p*30/250)*250)),actGoal:g,goalMode:'fija',actMode:'ambas',quiet:['22:00','07:00'],
+  habits:[['Agua','Tomar agua al despertar'],['Agua','Cumplir mi meta de agua'],['Alimentación','Registrar mis comidas'],['Alimentación','Incluir fruta o verdura'],['Alimentación','Comer a horas regulares'],['Movimiento','Caminar'],['Movimiento','Estirarme 5 minutos']].map(x=>({id:uid(),cat:x[0],name:x[1]})),
+  rem:[{id:uid(),name:'Toma agua',time:fmt(hm(f1)-30),on:true},{id:uid(),name:'Registra tu comida',time:'14:30',on:true},{id:uid(),name:'Hora de caminar',time:fmt(hm(f2)+30),on:true},{id:uid(),name:'Revisa tus hábitos de hoy',time:'21:00',on:true}],
+  log:{},weights:[{id:uid(),d:today(),kg:p}]};save();view='home';render()}}
+function nav(){$('#nav').innerHTML=[['home','Inicio'],['prog','Progreso'],['hab','Hábitos'],['perf','Perfil']].map(x=>`<button onclick="go('${x[0]}')" ${view===x[0]?'aria-current="page"':''}>${x[1]}</button>`).join('')}
+function go(v){view=v;render();scrollTo(0,0)}
+function render(){if(!S)return setup();nav();$('#app').innerHTML=({home:vHome,prog:vProg,hab:vHab,perf:vPerf})[view]()}
+function ring(p,s){const c=2*Math.PI*42;return`<svg width="${s}" height="${s}" viewBox="0 0 100 100" role="img" aria-label="${p}% completado"><circle cx="50" cy="50" r="42" fill="none" stroke="#1c1f22" stroke-width="9"/><circle cx="50" cy="50" r="42" fill="none" stroke="#39ff88" stroke-width="9" stroke-linecap="round" stroke-dasharray="${c*p/100} ${c}" transform="rotate(-90 50 50)"/><text x="50" y="57" text-anchor="middle" fill="#e9eeea" font-size="22" font-weight="700">${p}%</text></svg>`}
+const bar=(v,m)=>`<div class="bar"><i style="width:${Math.min(100,m?v/m*100:0)}%"></i></div>`;
+const isToday=()=>day===today();
+function tip(){const d=get(day),h=new Date().getHours(),w=sum(d.w,'ml');
+ const last=days(3).slice(0,3);if(isToday()&&last.every(x=>get(x).h.length===0)&&Object.keys(S.log).length>3)return'Hoy basta con una acción pequeña: un vaso de agua.';
+ if(isToday()&&h>=15&&w<S.waterGoal*.4)return'Llevas poca agua hoy. Un vaso ahora suma.';
+ if(isToday()&&h>=17&&!sum(d.a,'min'))return`Una caminata de ${Math.min(10,S.actGoal)} min ya cuenta.`;
+ if(isToday()&&!d.m.length&&h>=10)return'Registra lo que comiste cuando puedas.';return'Bien, continúa con tu rutina.'}
+function nextRem(){if(!isToday())return'';const n=fmt(new Date().getHours()*60+new Date().getMinutes()),l=S.rem.filter(r=>r.on&&r.time>=n).sort((a,b)=>a.time<b.time?-1:1)[0];return l?`<p class="mu">Próximo recordatorio: ${esc(l.name)} · ${l.time}</p>`:'<p class="mu">No hay más recordatorios activos hoy.</p>'}
+function vHome(){const d=get(day),w=sum(d.w,'ml'),am=sum(d.a,'min'),p=pct(day);
+ const lab=new Date(day+'T12:00').toLocaleDateString('es',{weekday:'long',day:'numeric',month:'short'});
+ const ps=S.actMode!=='cronometro',pc=S.actMode!=='manual';
+ return`<div class="row sp"><h1 class="ac">NEXO</h1><div class="row"><button class="g" aria-label="Día anterior" onclick="mv(-1)">‹</button><span>${isToday()?'Hoy':lab}</span><button class="g" aria-label="Día siguiente" onclick="mv(1)" ${isToday()?'disabled':''}>›</button></div></div><div style="height:10px"></div>
+ <section class="card row">${ring(p,96)}<div style="flex:1"><div class="big">${d.h.filter(i=>S.habits.some(x=>x.id===i)).length}/${S.habits.length}</div><div class="mu">hábitos del día</div><p style="margin-top:6px">${esc(tip())}</p></div>${nextRem()?`<div style="width:100%">${nextRem()}</div>`:''}</section>
+ <section class="card"><div class="row sp"><h2>Agua</h2><span class="mu">Meta orientativa: ${S.waterGoal} ml</span></div><div class="big">${w} <span class="mu" style="font-size:16px">ml · ${Math.round(w/S.waterGoal*100)}%</span></div>${bar(w,S.waterGoal)}
+ <div class="row">${[150,250,500,750].map(n=>`<button class="chip" onclick="addW(${n})">+${n}</button>`).join('')}<input id="wc" type="number" inputmode="numeric" placeholder="otro ml" style="width:100px" aria-label="Cantidad personalizada en ml"><button class="g" onclick="addW(+$('#wc').value)">Añadir</button></div>
+ ${d.w.map(x=>`<div class="item"><span>${x.ml} ml</span><span><button class="x" aria-label="Editar" onclick="edW('${x.id}')">✎</button><button class="x" aria-label="Eliminar" onclick="delW('${x.id}')">✕</button></span></div>`).join('')}</section>
+ <section class="card"><h2>Comidas</h2><div class="row"><select id="mc" onchange="mcs()" aria-label="Categoría">${MEALS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+ <div class="row" id="fq" style="margin:8px 0">${FREQ.Desayuno.map(f=>`<button class="chip" onclick="addM('${f}')">${f}</button>`).join('')}</div>
+ <div class="row"><input id="mt" placeholder="Otro alimento o platillo" aria-label="Alimento"><button class="b" onclick="addM($('#mt').value)">Añadir</button></div>
+ <button class="g" style="margin-top:8px" onclick="showOut=!showOut;render()">${showOut?'Ocultar':'Ideas si estás fuera de casa'}</button>
+ ${showOut?`<ul style="padding-left:18px;margin-top:8px">${OUT.map(o=>`<li>${o}</li>`).join('')}</ul><p class="mu">Son opciones, no reglas. Elige lo que tengas a la mano.</p>`:''}
+ ${MEALS.map(c=>{const l=d.m.filter(x=>x.t===c);return l.length?`<div class="mu" style="margin-top:10px">${c}</div>`+l.map(x=>`<div class="item"><span>${esc(x.name)}</span><span><button class="x" aria-label="Editar" onclick="edM('${x.id}')">✎</button><button class="x" aria-label="Eliminar" onclick="delM('${x.id}')">✕</button></span></div>`).join(''):''}).join('')}
+ ${d.m.length?'':'<p class="mu" style="margin-top:8px">Aún no hay comidas registradas este día.</p>'}</section>
+ <section class="card"><div class="row sp"><h2>Actividad</h2><span class="mu">Meta: ${actGoal()} min</span></div><div class="big">${am} <span class="mu" style="font-size:16px">min</span></div>${bar(am,actGoal())}
+ <select id="at" aria-label="Tipo de actividad">${ACT.map(c=>`<option>${c}</option>`).join('')}</select>
+ <div class="row" style="margin-top:8px">${ps?`<input id="am" type="number" inputmode="numeric" placeholder="minutos" style="flex:1" aria-label="Minutos"><button class="b" onclick="addA(+$('#am').value)">Añadir</button>`:''}
+ ${pc?(sw?`<button class="b" onclick="swStop()">Detener · <span id="swt">0:00</span></button>`:`<button class="g" onclick="swStart()">Iniciar cronómetro</button>`):''}</div>
+ ${pc?'<p class="mu">El cronómetro corre mientras esta pestaña esté abierta.</p>':''}
+ ${d.a.map(x=>`<div class="item"><span>${esc(x.type)} · ${x.min} min</span><span><button class="x" aria-label="Editar" onclick="edA('${x.id}')">✎</button><button class="x" aria-label="Eliminar" onclick="delA('${x.id}')">✕</button></span></div>`).join('')}${sugg()}</section>
+ <section class="card"><h2>Hábitos de hoy</h2>${habList()}</section>`}
+function mv(n){const d=new Date(day+'T12:00');d.setDate(d.getDate()+n);if(ymd(d)>today())return;day=ymd(d);render()}
+function mcs(){const c=$('#mc').value;$('#fq').innerHTML=FREQ[c].map(f=>`<button class="chip" onclick="addM('${f}')">${f}</button>`).join('')}
+function addW(n){if(!(n>=10&&n<=3000))return toast('Escribe entre 10 y 3000 ml');mut(day).w.push({id:uid(),ml:Math.round(n)});save();render();toast('Agua registrada')}
+function edW(i){const x=get(day).w.find(a=>a.id===i),n=+prompt('Cantidad en ml',x.ml);if(!(n>=10&&n<=3000))return;mut(day).w.find(a=>a.id===i).ml=Math.round(n);save();render()}
+function delW(i){if(!confirm('¿Eliminar este registro de agua?'))return;mut(day).w=get(day).w.filter(a=>a.id!==i);save();render()}
+function addM(t){t=(t||'').trim();if(!t)return toast('Escribe qué comiste');if(t.length>80)return toast('Máximo 80 caracteres');mut(day).m.push({id:uid(),t:$('#mc').value,name:t});save();const c=$('#mc').value;render();$('#mc').value=c;mcs();toast('Comida registrada')}
+function edM(i){const x=get(day).m.find(a=>a.id===i),n=(prompt('Editar',x.name)||'').trim();if(!n)return;mut(day).m.find(a=>a.id===i).name=n.slice(0,80);save();render()}
+function delM(i){if(!confirm('¿Eliminar este alimento?'))return;mut(day).m=get(day).m.filter(a=>a.id!==i);save();render()}
+function addA(n){if(!(n>=1&&n<=600))return toast('Escribe entre 1 y 600 minutos');mut(day).a.push({id:uid(),type:$('#at').value,min:Math.round(n)});save();render();toast('Actividad registrada')}
+function edA(i){const x=get(day).a.find(a=>a.id===i),n=+prompt('Minutos',x.min);if(!(n>=1&&n<=600))return;mut(day).a.find(a=>a.id===i).min=Math.round(n);save();render()}
+function delA(i){if(!confirm('¿Eliminar esta actividad?'))return;mut(day).a=get(day).a.filter(a=>a.id!==i);save();render()}
+function swStart(){sw={t0:Date.now(),type:$('#at').value};swT=setInterval(()=>{const e=$('#swt');if(e){const s=Math.floor((Date.now()-sw.t0)/1e3);e.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}},1000);render()}
+function swStop(){clearInterval(swT);const m=Math.max(1,Math.round((Date.now()-sw.t0)/6e4)),t=sw.type;sw=null;day=today();mut(day).a.push({id:uid(),type:t,min:m});save();render();toast(m+' min registrados')}
+function actGoal(){return S.goalMode==='disponible'&&S.profile.avail>0?S.profile.avail:S.actGoal}
+function sugg(){if(S.goalMode==='disponible')return'';const ok=days(7).filter(d=>sum(get(d).a,'min')>=S.actGoal).length;return ok>=5?`<div class="note">Cumpliste tu meta ${ok} de 7 días. Si quieres, puedes subirla un poco. <button class="chip" onclick="S.actGoal+=5;save();render()">Subir a ${S.actGoal+5} min</button></div>`:''}
+function habList(){return CATS.map(c=>{const l=S.habits.filter(h=>h.cat===c);return l.length?`<div class="mu" style="margin-top:8px">${c}</div>`+l.map(h=>{const on=get(day).h.includes(h.id);return`<label class="chk"><input type="checkbox" ${on?'checked':''} onchange="tg('${h.id}')"><span class="${on?'done':''}">${esc(h.name)}</span></label>`}).join(''):''}).join('')||'<p class="mu">No tienes hábitos. Agrega uno en la pestaña Hábitos.</p>'}
+function tg(i){const d=mut(day),k=d.h.indexOf(i);if(k<0)d.h.push(i);else d.h.splice(k,1);save();const p=pct(day);render();toast(k<0?(p>=100?'Día completo. Bien hecho':'Hábito completado'):'Hábito desmarcado')}
+function vHab(){const s=streak(),r=record(),dd=days(14);
+ return`<h1>Hábitos</h1><section class="card"><div class="cols"><div><div class="big ac">${s}</div><div class="mu">días de racha</div></div><div><div class="big">${r}</div><div class="mu">récord personal</div></div></div>
+ <p class="mu" style="margin-top:8px">Un día cuenta cuando completas al menos la mitad de tus hábitos.</p>
+ ${s===0?'<p style="margin-top:6px">Retoma con una acción pequeña hoy: un vaso de agua o una caminata corta.</p>':''}
+ <div class="mu" style="margin:10px 0 4px">Últimos 14 días</div><div class="hist" role="img" aria-label="Historial de cumplimiento">${dd.map(d=>{const p=pct(d);return`<i title="${d}: ${p}%" style="background:${p?`rgba(57,255,136,${.2+p/130})`:''}"></i>`}).join('')}</div></section>
+ <section class="card"><h2>Mis hábitos (${pct(day)}% hoy)</h2>${S.habits.length?CATS.map(c=>{const l=S.habits.filter(h=>h.cat===c);return l.length?`<div class="mu" style="margin-top:8px">${c}</div>`+l.map(h=>{const on=get(day).h.includes(h.id);return`<div class="chk"><input type="checkbox" aria-label="${esc(h.name)}" ${on?'checked':''} onchange="tg('${h.id}')"><span style="flex:1" class="${on?'done':''}">${esc(h.name)}</span><button class="x" aria-label="Eliminar hábito" onclick="delH('${h.id}')">✕</button></div>`}).join(''):''}).join(''):'<p class="mu">Aún no hay hábitos.</p>'}
+ <div class="row" style="margin-top:10px"><select id="hc" style="width:auto">${CATS.map(c=>`<option>${c}</option>`).join('')}</select><input id="hn" placeholder="Nuevo hábito" style="flex:1" aria-label="Nombre del hábito"><button class="b" onclick="addH()">Añadir</button></div></section>
+ <section class="card"><h2>Consejos generales</h2><ul style="padding-left:18px"><li>Toma agua repartida durante el día, no solo cuando tengas sed intensa.</li><li>Incluye fibra poco a poco: fruta, verdura, frijoles, avena o pan integral.</li><li>Comer a horas parecidas cada día ayuda a la digestión y al hambre.</li><li>Una caminata corta después de comer suele sentar bien.</li></ul><p class="note">Son ideas generales y no sustituyen una valoración médica. Si tienes síntomas que no se quitan, dolor intenso, sangre en las heces o pérdida de peso sin explicación, consulta a un profesional de salud.</p></section>`}
+function addH(){const n=$('#hn').value.trim();if(!n)return toast('Escribe el nombre del hábito');if(n.length>60)return toast('Máximo 60 caracteres');S.habits.push({id:uid(),cat:$('#hc').value,name:n});save();render()}
+function delH(i){if(!confirm('¿Eliminar este hábito? Su historial dejará de contar en el porcentaje.'))return;S.habits=S.habits.filter(h=>h.id!==i);save();render()}
+function chart(vals,labels,unit){if(!vals.some(v=>v>0))return'<p class="mu">Todavía no hay registros en los últimos 7 días. Empieza desde Inicio y aquí aparecerán.</p>';const m=Math.max(...vals);return`<div style="display:flex;gap:6px;align-items:flex-end;height:110px" role="img" aria-label="Gráfica de 7 días">${vals.map((v,i)=>`<div style="flex:1;text-align:center"><div class="mu" style="font-size:11px">${v||''}</div><div style="height:${Math.max(2,v/m*80)}px;background:var(--ac);opacity:${v?1:.15};border-radius:5px"></div><div class="mu" style="font-size:11px">${labels[i]}</div></div>`).join('')}</div>`}
+function vProg(){const dd=days(7),lb=dd.map(d=>'DLMMJVS'[new Date(d+'T12:00').getDay()]),W=S.weights.slice().sort((a,b)=>a.d<b.d?-1:1),last=W[W.length-1],prev=W[W.length-2];
+ let wc='<p class="mu">Registra tu peso al menos dos semanas para ver la gráfica.</p>';
+ if(W.length>=2){const ks=W.map(x=>x.kg),mn=Math.min(...ks)-1,mx=Math.max(...ks)+1,pts=W.map((x,i)=>[8+i*(284/(W.length-1)),90-(x.kg-mn)/(mx-mn)*80]);wc=`<svg viewBox="0 0 300 100" width="100%" role="img" aria-label="Evolución del peso"><polyline fill="none" stroke="#39ff88" stroke-width="2.5" points="${pts.map(p=>p.join(',')).join(' ')}"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#39ff88"/>`).join('')}</svg><div class="row sp mu"><span>${W[0].d}</span><span>${last.d}</span></div>`}
+ const diff=prev?Math.round((last.kg-prev.kg)*10)/10:null,left=Math.round((last.kg-S.profile.goal)*10)/10;
+ return`<h1>Progreso</h1><section class="card"><h2>Peso</h2><div class="big">${last.kg} kg</div><p class="mu">${diff===null?'Primer registro.':`Frente al registro anterior: ${diff>0?'+':''}${diff} kg.`} ${left>0?`Faltan ${left} kg para tu objetivo.`:'Estás en tu objetivo o por debajo.'}</p>${wc}
+ <p class="note">El peso sube y baja por muchos motivos. Una subida o una semana sin cambios es normal; tu progreso también son tus hábitos.</p>
+ <div class="row"><input id="wk" type="number" step="0.1" inputmode="decimal" placeholder="kg de hoy" style="flex:1" aria-label="Peso en kg"><button class="b" onclick="addK()">Guardar</button></div><p class="mu">Con una vez por semana es suficiente.</p>
+ ${W.slice().reverse().slice(0,5).map(x=>`<div class="item"><span>${x.d} · ${x.kg} kg</span><button class="x" aria-label="Eliminar" onclick="delK('${x.id}')">✕</button></div>`).join('')}</section>
+ <section class="card"><h2>Cumplimiento de hábitos (%)</h2>${chart(dd.map(pct),lb)}</section>
+ <section class="card"><h2>Actividad (min)</h2>${chart(dd.map(d=>sum(get(d).a,'min')),lb)}</section>
+ <section class="card"><h2>Agua (ml)</h2>${chart(dd.map(d=>sum(get(d).w,'ml')),lb)}</section>`}
+function addK(){const v=parseFloat($('#wk').value);if(!(v>=25&&v<=300))return toast('Escribe un peso entre 25 y 300 kg');S.weights.push({id:uid(),d:today(),kg:v});S.profile.kg=v;save();render();toast('Peso guardado')}
+function delK(i){if(S.weights.length<2)return toast('Debe quedar al menos un registro');if(!confirm('¿Eliminar este registro de peso?'))return;S.weights=S.weights.filter(x=>x.id!==i);save();render()}
+function vPerf(){const p=S.profile,nt='Notification'in window?Notification.permission:'na';
+ return`<h1>Perfil</h1><form class="card" onsubmit="event.preventDefault();savePf()" novalidate><h2>Mis datos</h2>
+ <div class="cols"><div><label for="pa">Edad</label><input id="pa" type="number" value="${p.age}"></div><div><label for="pc">Estatura (cm)</label><input id="pc" type="number" value="${p.cm}"></div><div><label for="pk">Peso actual (kg)</label><input id="pk" type="number" step="0.1" value="${p.kg}"></div><div><label for="po">Peso objetivo (kg)</label><input id="po" type="number" step="0.1" value="${p.goal}"></div><div><label for="pf1">Salgo a las</label><input id="pf1" type="time" value="${p.away[0]}"></div><div><label for="pf2">Regreso a las</label><input id="pf2" type="time" value="${p.away[1]}"></div></div>
+ <label for="pm">Minutos disponibles al día</label><input id="pm" type="number" value="${p.avail}">
+ <label for="pw">Meta de agua (ml, orientativa)</label><input id="pw" type="number" value="${S.waterGoal}">
+ <label for="pg">Meta de actividad (min)</label><input id="pg" type="number" value="${S.actGoal}">
+ <label for="gm">Cómo se define mi meta de actividad</label><select id="gm"><option value="fija" ${S.goalMode==='fija'?'selected':''}>Meta fija (la edito yo)</option><option value="disponible" ${S.goalMode==='disponible'?'selected':''}>Mis minutos disponibles</option></select>
+ <label for="am2">Registro de actividad</label><select id="am2"><option value="manual" ${S.actMode==='manual'?'selected':''}>Manual</option><option value="cronometro" ${S.actMode==='cronometro'?'selected':''}>Cronómetro</option><option value="ambas" ${S.actMode==='ambas'?'selected':''}>Ambas</option></select>
+ <label>Horas de silencio (sin recordatorios)</label><div class="cols"><input id="q1" type="time" value="${S.quiet[0]}" aria-label="Desde"><input id="q2" type="time" value="${S.quiet[1]}" aria-label="Hasta"></div>
+ <p class="note" id="perr" hidden></p><button class="b" style="width:100%;margin-top:12px">Guardar cambios</button></form>
+ <section class="card"><h2>Recordatorios</h2>${S.rem.map(r=>`<div class="item"><label class="row" style="margin:0;color:var(--tx)"><input type="checkbox" style="width:22px;min-height:0" ${r.on?'checked':''} onchange="remOn('${r.id}',this.checked)">${esc(r.name)}</label><input type="time" value="${r.time}" style="width:120px" aria-label="Hora de ${esc(r.name)}" onchange="remT('${r.id}',this.value)"></div>`).join('')}
+ <div class="note">Los avisos aparecen solo mientras NEXO está abierto o en segundo plano. NEXO se puede instalar y abrir sin conexión (si está alojado con HTTPS), pero sin un servidor de notificaciones no puede avisarte con la app totalmente cerrada. ${nt==='granted'?'Notificaciones del navegador: permitidas.':nt==='denied'?'Notificaciones bloqueadas: verás los avisos dentro de la app.':nt==='na'?'Este navegador no admite notificaciones: verás los avisos dentro de la app.':''}</div>
+ ${nt==='default'?'<button class="g" onclick="Notification.requestPermission().then(render)">Permitir notificaciones del navegador</button>':''}</section>
+ <section class="card"><h2>Mis datos</h2><p class="mu">Todo se guarda solo en este navegador. Si borras los datos del navegador o cambias de dispositivo sin exportar, se pierde.</p>
+ <div class="row" style="margin-top:10px"><button class="b" onclick="exp()">Exportar</button><button class="g" onclick="$('#imp').click()">Importar</button><button class="g" style="color:#ff7a7a" onclick="reset()">Restablecer</button></div><input id="imp" type="file" accept="application/json,.json" hidden onchange="imp(this.files[0])"></section>`}
+function savePf(){const v=id=>parseFloat($('#'+id).value),er=[];
+ if(!(v('pa')>=14&&v('pa')<=100))er.push('Edad entre 14 y 100.');if(!(v('pc')>=100&&v('pc')<=230))er.push('Estatura entre 100 y 230 cm.');if(!(v('pk')>=25&&v('pk')<=300))er.push('Peso actual entre 25 y 300 kg.');if(!(v('po')>=25&&v('po')<=300))er.push('Peso objetivo entre 25 y 300 kg.');
+ if(!(v('pm')>=0&&v('pm')<=240))er.push('Minutos disponibles entre 0 y 240.');if(!(v('pw')>=500&&v('pw')<=6000))er.push('Meta de agua entre 500 y 6000 ml.');if(!(v('pg')>=1&&v('pg')<=240))er.push('Meta de actividad entre 1 y 240 min.');
+ if(er.length){$('#perr').hidden=false;$('#perr').innerHTML=er.join('<br>');return}
+ Object.assign(S.profile,{age:v('pa'),cm:v('pc'),kg:v('pk'),goal:v('po'),avail:v('pm'),away:[$('#pf1').value||'08:00',$('#pf2').value||'18:00']});
+ S.waterGoal=v('pw');S.actGoal=v('pg');S.goalMode=$('#gm').value;S.actMode=$('#am2').value;S.quiet=[$('#q1').value||'22:00',$('#q2').value||'07:00'];save();render();toast('Cambios guardados')}
+function remOn(i,on){S.rem.find(r=>r.id===i).on=on;save()}
+function remT(i,t){if(t){S.rem.find(r=>r.id===i).time=t;save()}}
+function exp(){const b=new Blob([JSON.stringify(Object.assign({app:'NEXO'},S),null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='nexo-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1e3);toast('Archivo exportado')}
+function imp(f){if(!f)return;const r=new FileReader();r.onerror=()=>toast('No se pudo leer el archivo');r.onload=()=>{try{const j=JSON.parse(r.result);
+ if(j.app!=='NEXO'||j.v!==1||!j.profile||!Array.isArray(j.habits)||!Array.isArray(j.weights)||!j.weights.length||!Array.isArray(j.rem)||typeof j.log!=='object'||!Array.isArray(j.quiet)||!(j.waterGoal>0)||!(j.actGoal>0))throw 0;
+ if(!confirm('Esto reemplazará todos tus datos actuales por los del archivo. ¿Continuar?'))return;delete j.app;S=j;save();view='home';render();toast('Datos importados')}catch(e){toast('Archivo no válido: usa uno exportado desde NEXO')}};r.readAsText(f);$('#imp').value=''}
+function reset(){if(!confirm('Se eliminarán tu perfil, hábitos, comidas, agua, actividad, pesos y recordatorios de este dispositivo. ¿Ya exportaste tus datos? Si no, cancela y toca Exportar primero.'))return;if(!confirm('Última confirmación: ¿restablecer NEXO?'))return;try{localStorage.removeItem(K)}catch(e){}S=null;day=today();render()}
+function inQuiet(m){const a=hm(S.quiet[0]),b=hm(S.quiet[1]);return a<=b?m>=a&&m<b:m>=a||m<b}
+function tick(){if(!S)return;const n=new Date(),m=n.getHours()*60+n.getMinutes(),t=fmt(m),k=today()+t;S.fired=S.fired||{};
+ let due=S.rem.filter(r=>r.on&&r.time===t&&S.fired[r.id]!==k&&!inQuiet(m));
+ snooze=snooze.filter(s=>{if(s.at<=Date.now()){due.push(s.r);return false}return true});
+ due.forEach(r=>{S.fired[r.id]=k;ban(r);if('Notification'in window&&Notification.permission==='granted')try{new Notification('NEXO',{body:r.name})}catch(e){}});if(due.length)save()}
+function ban(r){const e=document.createElement('div');e.className='ban';e.innerHTML=`<b>${esc(r.name)}</b><div class="row" style="margin-top:8px"><button class="b" onclick="this.closest('.ban').remove();go('home')">Ir a NEXO</button><button class="g" data-s>Posponer 10 min</button><button class="g" data-c>Cerrar</button></div>`;e.querySelector('[data-s]').onclick=()=>{snooze.push({at:Date.now()+6e5,r});e.remove()};e.querySelector('[data-c]').onclick=()=>e.remove();$('#ban').appendChild(e)}
+setInterval(tick,20000);render();
+if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
