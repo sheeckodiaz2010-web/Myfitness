@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101410">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <title>NEXO · Tu progreso, a tu ritmo</title>
 <style>
 :root{--bg:#0b0e0c;--panel:#141a16;--panel2:#1a211c;--line:#29332c;--text:#f1f5f1;--muted:#98a59b;--green:#b7f36b;--green2:#8fce45;--red:#ff8e8e;--radius:20px}
@@ -107,5 +112,14 @@ function renderFoodSuggestions(){let opts=['Huevos','Frijoles','Tortillas','Poll
 function appendFood(x){$('mealInput').value=($('mealInput').value?$('mealInput').value+', ':'')+x}
 function tickReminder(){if(!data.profile||!data.settings.reminders)return;let now=new Date(),time=now.toTimeString().slice(0,5),key=today()+'_'+time;if(time===data.settings.reminderTime&&sessionStorage.getItem('nexo_last_reminder')!==key){sessionStorage.setItem('nexo_last_reminder',key);if('Notification'in window&&Notification.permission==='granted')new Notification('NEXO',{body:data.settings.reminderText});else{let n=document.createElement('div');n.className='notice';n.textContent=data.settings.reminderText;document.querySelector('main').prepend(n);setTimeout(()=>n.remove(),10000)}}}
 $('today').textContent=dateLabel();$('weightDate').value=today();if(!data.profile)showTab('setup');else showTab('home');setInterval(tickReminder,15000);
+</script>
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(error => {
+      console.warn('NEXO: no se pudo activar el modo de aplicación.', error);
+    });
+  });
+}
 </script>
 </body></html>
